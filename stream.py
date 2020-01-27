@@ -1,11 +1,6 @@
 import boto3
 import json
 
-BUCKET_NAME = "arvind-opendota-dec2015"
-KEY_NAME = "yasp-dump-2015-12-18.json"
-CHUNK_SIZE = 1024
-NUM_CHUNKS = 2
-
 class S3_JSON_Stream:
     def __init__(self,bucket_name, key, chunk_size=1024, num_chunks=2):
        self.bucket = bucket_name
@@ -52,11 +47,3 @@ class S3_JSON_Stream:
             self.end_byte = self.start_byte + self.chunk_size*self.num_chunks
 
         return msg
-
-if __name__ == '__main__':
-    stream = S3_JSON_Stream(BUCKET_NAME, KEY_NAME, CHUNK_SIZE, NUM_CHUNKS)
-    counter = 0
-    while True:
-        counter += 1
-        j = stream.get_msg()
-        print("Parsed Message", counter)

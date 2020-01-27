@@ -1,11 +1,7 @@
 from confluent_kafka import Consumer as KafkaConsumer
 import logging
 import json
-
-BOOTSTRAP_SERVER1 = "ip-10-0-0-8.us-west-2.compute.internal:9092"
-BOOTSTRAP_SERVER2 = "ip-10-0-0-5.us-west-2.compute.internal:9092"
-BOOTSTRAP_SERVER3 = "ip-10-0-0-10.us-west-2.compute.internal:9092"
-BOOTSTRAP_SERVERS = BOOTSTRAP_SERVER1 + "," + BOOTSTRAP_SERVER2 + "," + BOOTSTRAP_SERVER3
+import config
 
 GROUP_ID = 1
 LOG_LEVEL = logging.INFO 
@@ -18,8 +14,8 @@ class Consumer:
         self.logger.addHandler(logging.StreamHandler())
 
         # connect to kafka cluster
-        config = {"bootstrap.servers":BOOTSTRAP_SERVERS, "on_commit":self.on_commit, "group.id":GROUP_ID}
-        self.consumer = KafkaConsumer(config)
+        kc_config = {"bootstrap.servers":config.bootstrap_servers, "on_commit":self.on_commit, "group.id":GROUP_ID}
+        self.consumer = KafkaConsumer(kc_config)
         self.logger.info("Consumer configured")
         
         # subscribe to topic

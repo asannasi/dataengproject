@@ -2,14 +2,8 @@ from confluent_kafka import Producer as KProducer
 import logging
 from stream import S3_JSON_Stream 
 import json
+import config
 
-BOOTSTRAP_SERVER1 = "ip-10-0-0-8.us-west-2.compute.internal:9092"
-BOOTSTRAP_SERVER2 = "ip-10-0-0-5.us-west-2.compute.internal:9092"
-BOOTSTRAP_SERVER3 = "ip-10-0-0-10.us-west-2.compute.internal:9092"
-BOOTSTRAP_SERVERS = BOOTSTRAP_SERVER1 + "," + BOOTSTRAP_SERVER2 + "," + BOOTSTRAP_SERVER3
-
-BUCKET_NAME = "arvind-opendota-dec2015"
-KEY_NAME = "yasp-dump-2015-12-18.json"
 CHUNK_SIZE = 1024
 NUM_CHUNKS = 2
 
@@ -24,12 +18,12 @@ class Producer:
         self.logger.addHandler(logging.StreamHandler())
 
         # connect to Kafka cluster
-        config = {"bootstrap.servers":BOOTSTRAP_SERVERS, "on_delivery":self.on_delivery}
-        self.producer = KProducer(config, logger=self.logger)
+        kp_config = {"bootstrap.servers":config.bootstrap_servers, "on_delivery":self.on_delivery}
+        self.producer = KProducer(kp_config, logger=self.logger)
         self.logger.info("Producer configured")
 
         # Initialize stream
-        self.stream = S3_JSON_Stream(BUCKET_NAME, KEY_NAME, CHUNK_SIZE, NUM_CHUNKS)
+        self.stream = S3_JSON_Stream(config.bucket, config.key, CHUNK_SIZE, NUM_CHUNKS)
 
     def produce_message(self):
         json_msg = self.stream.get_msg()
