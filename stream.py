@@ -1,6 +1,8 @@
 import boto3
 import json
+import logging
 
+LOG_LEVEL = logging.DEBUG
 class S3_JSON_Stream:
     def __init__(self,bucket_name, key, chunk_size=1024, num_chunks=2):
        self.bucket = bucket_name
@@ -11,6 +13,10 @@ class S3_JSON_Stream:
        self.buffer = b""
        self.start_byte = 1
        self.end_byte = (self.chunk_size * self.num_chunks)-1
+
+       self.logger = logging.getLogger(__name__)
+       self.logger.setLevel(LOG_LEVEL)
+       self.logger.addHandler(logging.StreamHandler())
 
     def _send_request(self):
         # Send request to s3
@@ -23,6 +29,11 @@ class S3_JSON_Stream:
         return s3_response
 
     def get_msg(self):
+        msg_end_idx = self.buffer.find(b"\n,\n")
+        if msg_end_idx != -1:
+            msg = json.loads(self.buffer[:msg_end_idx])
+            self.buffer = self.buffer[msg_end_idx+3:]
+            return msg
         downloading = True
         msg = None
         while (downloading):
@@ -30,18 +41,19 @@ class S3_JSON_Stream:
             s3_response = self._send_request()
             s3_chunk_iter = s3_response["Body"].iter_chunks(chunk_size=self.chunk_size)
             for s3_chunk in s3_chunk_iter:
-                msg_end_idx = s3_chunk.find(b"\n,")
-                if msg_end_idx != -1:
-                    downloading = False
-                    s3_json = self.buffer + s3_chunk[:msg_end_idx]
-                    try:
-                        msg = json.loads(s3_json)
-                    except Exception as e:
-                         self.logger.error("Json could not be parsed.")
-                         self.logger.debug(s3_json)
-                    self.buffer = s3_chunk[msg_end_idx+2:]
-                else:
-                    self.buffer += s3_chunk
+                self.buffer += s3_chunk
+                if msg == None:
+                    msg_end_idx = self.buffer.find(b"\n,\n")
+                    if msg_end_idx != -1:
+                        downloading = False
+                        s3_json = self.buffer[:msg_end_idx]
+                        try:
+                            msg = json.loads(s3_json)
+                        except Exception as e:
+                            self.logger.error(e)
+                            self.logger.debug(s3_json)
+                            return None
+                        self.buffer = self.buffer[msg_end_idx+3:]
 
             self.start_byte = self.end_byte + 1
             self.end_byte = self.start_byte + self.chunk_size*self.num_chunks

@@ -44,7 +44,6 @@ class Consumer:
     def consume_messages(self):
         while True:
             json_msg = self.consume_message()
-
             self.logger.info(f"Got MatchID: {json_msg['match_id']}")
         self.consumer.close()
 
@@ -56,6 +55,6 @@ class Consumer:
 
 
 if __name__ == "__main__":
-    topics = ["test"]
+    topics = [config.topic_name]
     consumer = Consumer(topics)
     consumer.consume_messages()
