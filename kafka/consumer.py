@@ -34,13 +34,16 @@ class Consumer:
                     self.logger.debug(f"Topic: {msg.topic()}, Partition: {msg.partition()}, Offset: {msg.offset()}")
                     self.logger.debug(f"Value: {msg.value()}")
 
-                    json_msg = json.loads(msg.value())
-                    return json_msg
+                    #json_msg = json.loads(msg.value())
+                    #return json_msg
+                    return msg.value()
                     
         except KeyboardInterrupt:
             self.logger.error("Closing Consumer")
             self.consumer.close()
 
+    def close(self):
+        self.consumer.close()
     def consume_messages(self):
         while True:
             json_msg = self.consume_message()

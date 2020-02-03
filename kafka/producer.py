@@ -14,7 +14,7 @@ LOG_LEVEL = logging.INFO
 class Producer:
     def __init__(self, logger=None):
         # setup logger
-        self.logger = logging.getLogger(__name__)
+        self.logger = logger or logging.getLogger(__name__)
         self.logger.setLevel(LOG_LEVEL)
         self.logger.addHandler(logging.StreamHandler())
 
@@ -26,11 +26,12 @@ class Producer:
         # Initialize stream
         self.stream = S3_JSON_Stream(config.bucket, config.key, CHUNK_SIZE, NUM_CHUNKS)
 
+        self.delivered_msgs = 0
+
     def produce_message(self):
         json_msg = self.stream.get_msg()
-        match_end_time = int(json_msg["start_time"]) + int(json_msg["duration"])
 
-        self.producer.produce(topic=config.topic_name, value=json.dumps(json_msg), callback=self.on_delivery)
+        self.producer.produce(topic=config.topic_name, value=json.dumps(json_msg), callback=self.on_delivery, key=bytes(str(json_msg["match_id"]),'utf-8'))
         self.producer.poll(timeout=0)
         return json_msg
 
@@ -43,7 +44,8 @@ class Producer:
         self.producer.flush()
 
     def on_delivery(self, error, message):
-        self.logger.info(f"Delivered Msg {counter}: MatchID {json_msg['match_id']}")
+        self.delivered_msgs += 1
+        self.logger.info(f"Delivered Message {self.delivered_msgs}")
         self.logger.debug(f"{message.topic()}, {message.value()}")
         
 if __name__ == '__main__':

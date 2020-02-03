@@ -17,6 +17,7 @@ class S3_JSON_Stream:
        self.logger = logging.getLogger(__name__)
        self.logger.setLevel(LOG_LEVEL)
        self.logger.addHandler(logging.StreamHandler())
+       
 
     def _send_request(self):
         # Send request to s3
@@ -28,7 +29,7 @@ class S3_JSON_Stream:
         )
         return s3_response
 
-    def get_msg(self):
+    def download_msg(self):
         msg_end_idx = self.buffer.find(b"\n,\n")
         if msg_end_idx != -1:
             msg = json.loads(self.buffer[:msg_end_idx])
@@ -59,3 +60,25 @@ class S3_JSON_Stream:
             self.end_byte = self.start_byte + self.chunk_size*self.num_chunks
 
         return msg
+
+    def get_msg(self):
+        orig_msg = self.download_msg()
+        #return orig_msg
+        new_msg = {}
+        new_msg["match_id"] = orig_msg["match_id"]
+        new_msg["radiant_win"] = orig_msg["radiant_win"]
+        new_msg["players"] = []
+        for i in range(9):
+            player_data = orig_msg["players"][i]
+            new_msg["players"].append({})
+            if orig_msg["players"][i]["account_id"] == None or -1:
+                new_msg["players"][i]["account_id"] = 4294967295
+            else:
+                new_msg["players"][i]["account_id"] = int(player_data["account_id"])
+            new_msg["players"][i]["hero_id"] = player_data["hero_id"]
+            new_msg["players"][i]["level"] = player_data["level"]
+            if player_data["player_slot"] >= 128:
+                new_msg["players"][i]["win"] = "true"
+            else:
+                new_msg["players"][i]["win"] = "false"
+        return json.loads(json.dumps(new_msg))
