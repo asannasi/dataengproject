@@ -1,0 +1,5 @@
+SET 'auto.offset.reset'='earliest';
+
+CREATE STREAM json_input (match_id INT, radiant_win STRING, players ARRAY<STRUCT<account_id INT, hero_id INT, level INT, win STRING>>) WITH (KAFKA_TOPIC='test', VALUE_FORMAT='JSON', KEY='match_id');
+
+CREATE STREAM exploded_players AS SELECT match_id, radiant_win, EXPLODE(players)->account_id as account_id,EXPLODE(players)->hero_id as hero_id, EXPLODE(players)->level as level, EXPLODE(players)->win as win FROM json_input EMIT CHANGES;
