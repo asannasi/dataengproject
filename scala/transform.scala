@@ -25,8 +25,9 @@ import org.apache.kafka.streams.kstream.Printed
 
 //case class Teammates(account_id: String)
 //case class Player(account_id: String, teammates:Array[Teammate])
-case class Player(account_id: Int, hero_id: Int, level: Int, win: String)
-case class Match_Data(match_id: Int, radiant_win: String, players: List[Player])
+case class Player_Pair(player1: Player, player2: Player, radiant_win: Boolean, match_id: String)
+case class Player(account_id: String, hero_id: Int, level: Int, team: String)
+case class Match_Data(match_id: String, radiant_win: Boolean, players: List[Player])
 
 object Transformer extends App{
   val props: Properties = {
@@ -36,11 +37,32 @@ object Transformer extends App{
     p
   }
   val builder: StreamsBuilder = new StreamsBuilder
-  val source = builder.stream[String, Match_Data]("test")
-  source.print(Printed.toSysOut())
+  val source = builder.stream[String, Match_Data]("raw_json")
 
-  val node: KStream[String, String] = source.flatMap(source => source.)
-  source.to("StreamsOutput")
+  val playerPairs: KStream[String, Player_Pair] = source
+    .flatMapValues(value => value.players.combinations(2).toList.map(x => Player_Pair(x(0), x(1), value.radiant_win, value.match_id)))
+    .filter((_, value) => value.player1.account_id != "4294967295" && value.player2.account_id != "4294967295")
+
+  val player1Won = (pair: Player_Pair) => pair.player1.team == "radiant" && pair.radiant_win == true
+  val sameTeam = (pair: Player_Pair) => pair.player1.team == pair.player2.team
+
+  val wonWith = (_: String, pair: Player_Pair) => player1Won(pair) && sameTeam(pair)
+  val wonAgainst = (_: String, pair: Player_Pair) => player1Won(pair) && !sameTeam(pair)
+  val lostWith = (_: String, pair: Player_Pair) => !player1Won(pair) && sameTeam(pair)
+  val lostAgainst = (_: String, pair: Player_Pair) => !player1Won(pair) && !sameTeam(pair)
+
+  val relationships = playerPairs
+    .branch(
+      wonWith,
+      wonAgainst,
+      lostWith,
+      lostAgainst
+    )
+
+  relationships(0).to("won_with")
+  relationships(1).to("won_against")
+  relationships(2).to("lost_with")
+  relationships(3).to("lost_against")
   val streams: KafkaStreams = new KafkaStreams(builder.build(),props)
   //streams.cleanUp() // Not for production use. Will rebuild state.
   streams.start()
