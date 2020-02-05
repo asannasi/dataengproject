@@ -24,7 +24,9 @@ if __name__ == "__main__":
     while True:
         json_msg = stream.get_msg()
         key = str(json_msg["match_id"])
-        producer.send_json_to_kafka(json_msg, config.topic_name, key)
+        if msg_counter:
+            producer.send_json_to_kafka(json_msg, key, config.topic_name)
 
         msg_counter += 1
-        logger.info(f"Produced Msg {counter}")
+        logger.info(f"Produced Msg {msg_counter} with Match ID {key}")
+    producer.flush()

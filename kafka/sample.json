@@ -1,0 +1,10 @@
+{
+    "match_id": "1",
+    "radiant_win": "true",
+    "players":[{
+        "account_id": 0,
+        "hero_id": 0,
+        "level": 0,
+        "team": "radiant"
+    }]
+}

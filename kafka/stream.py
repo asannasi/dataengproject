@@ -105,12 +105,8 @@ class S3_JSON_Stream:
         new_msg = {}
 
         # Set match data values
-        new_msg["match_id"] = orig_msg["match_id"]
+        new_msg["match_id"] = str(orig_msg["match_id"])
         new_msg["radiant_win"] = orig_msg["radiant_win"]
-        if (orig_msg["radiant_win"] == "true"):
-            new_msg["winning_team"] = "radiant"
-        else:
-            new_msg["winning_team"] = "dire"
 
         # Store player data into JSON array
         new_msg["players"] = []
@@ -121,23 +117,18 @@ class S3_JSON_Stream:
             # Set fields
             new_msg["players"][i]["hero_id"] = player_data["hero_id"]
             new_msg["players"][i]["level"] = player_data["level"]
-            if orig_msg["players"][i]["account_id"] == None or -1:
+            if orig_msg["players"][i]["account_id"] == None or \
+                    orig_msg["players"][i]["account_id"] == -1:
                 # Standardize anonymous account ID
-                new_msg["players"][i]["account_id"] = ANON_ID
+                new_msg["players"][i]["account_id"] = str(ANON_ID)
             else:
                 new_msg["players"][i]["account_id"] = \
-                                                  int(player_data["account_id"])
+                                                  str(player_data["account_id"])
             # Set the player's team from the bit field
             if player_data["player_slot"] >= TEAM_BIT_POS:
                 new_msg["players"][i]["team"] = "radiant"
             else:
                 new_msg["players"][i]["team"] = "dire"
-
-            # Store whether the player won
-            if new_msg["players"][i]["team"] == new_msg["winning_team"]:
-                new_msg["players"][i]["win"] = "true"
-            else:
-                new_msg["players"][i]["win"] = "false"
 
         # Convert the dict into JSON and return it as a string
         return json.loads(json.dumps(new_msg))

@@ -24,6 +24,9 @@ class Consumer:
         
         # subscribe to topic
         self.consumer.subscribe(topics, on_assign=self.on_assignment)
+        
+        self.num_msgs = 0 # counter
+        
     # Consumes a single message from a topic
     def consume_message(self):
         try:

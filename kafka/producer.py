@@ -34,3 +34,7 @@ class Producer:
         self.delivered_msgs += 1
         self.logger.info(f"Delivered Message {self.delivered_msgs}")
         self.logger.debug(f"{message.topic()}, {message.value()}")
+
+    # This method forces queued messages to send
+    def flush(self):
+        self.producer.flush()

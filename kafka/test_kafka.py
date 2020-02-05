@@ -21,7 +21,7 @@ class KafkaTestCase(unittest.TestCase):
         p_msg = producer.send_json_to_kafka(json_msg, key,topic)
 
         # Consume message
-        consumer = Consumer([topic])
+        consumer = Consumer(config.bootstrap_servers, [topic])
         c_msg = consumer.consume_message()
 
         # Check if the messages are the same
