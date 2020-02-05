@@ -32,7 +32,7 @@ case class Match_Data(match_id: String, radiant_win: Boolean, players: List[Play
 object Transformer extends App{
   val props: Properties = {
     val p = new Properties()
-    p.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "10.0.0.10:9092")
+    p.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "10.0.0.13:9092")
     p.put(StreamsConfig.APPLICATION_ID_CONFIG, "transformer")
     p
   }
@@ -42,6 +42,11 @@ object Transformer extends App{
   val playerPairs: KStream[String, Player_Pair] = source
     .flatMapValues(value => value.players.combinations(2).toList.map(x => Player_Pair(x(0), x(1), value.radiant_win, value.match_id)))
     .filter((_, value) => value.player1.account_id != "4294967295" && value.player2.account_id != "4294967295")
+
+  val players: KStream[String, Player] = source
+    .flatMapValues(value => value.players)
+    .filter((_, value) => value.account_id != "4294967295")
+  players.to("players")
 
   val player1Won = (pair: Player_Pair) => pair.player1.team == "radiant" && pair.radiant_win == true
   val sameTeam = (pair: Player_Pair) => pair.player1.team == pair.player2.team
