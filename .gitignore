@@ -149,3 +149,4 @@ scala/project/
 .scala_dependencies
 .worksheet
 .idea
+website/website.sock
