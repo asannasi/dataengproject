@@ -106,7 +106,7 @@ class S3_JSON_Stream:
 
         # Set match data values
         new_msg["match_id"] = str(orig_msg["match_id"])
-        new_msg["radiant_win"] = orig_msg["radiant_win"]
+        new_msg["radiant_win"] = bool(orig_msg["radiant_win"])
 
         # Store player data into JSON array
         new_msg["players"] = []
