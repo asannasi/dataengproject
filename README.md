@@ -14,10 +14,10 @@ I pull JSON match data from S3 and produce it to Kafka with a python producer. T
 
 This code is in the kafka folder. It uses python 3. It depends on boto3, json, and confluent-kafka libraries. It basically downloads from S3 in chunks using GET requests and returns parseable JSON messages.
 
-'''shell
+```shell
 docker container run kafka_producer
-'''
+```
 Or if you have the dependencies:
-'''shell
+```shell
 python3 send_data.py
-'''
+```
