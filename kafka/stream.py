@@ -41,7 +41,12 @@ class S3_JSON_Stream:
     def _send_request(self):
         range_header = "bytes=" + str(self.start_byte) + \
                        "-" + str(self.end_byte)
-        s3_response = boto3.client('s3').get_object(
+        client = boto3.client(
+            's3', 
+            aws_access_key_id=config.aws_access_key_id,
+            aws_secret_access_key=config.aws_secret_access_key
+        )
+        s3_response = client.get_object(
                 Bucket=self.bucket,
                 Key=self.key,
                 Range=range_header
