@@ -12,7 +12,11 @@ topics = [
 "lost_with",
 "won_with",
 "neo4j",
-"players"
+"players",
+"neo4j_sink",
+"damaged",
+"killed",
+"healed"
 ]
 fs = a.delete_topics(topics, operation_timeout=30)
 

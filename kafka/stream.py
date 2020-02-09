@@ -3,6 +3,7 @@ import json
 import logging
 
 import config
+from heroes import heroes_json
 
 JSON_DELIMITER = b"\n,\n"
 NUM_PLAYERS = 10
@@ -107,29 +108,63 @@ class S3_JSON_Stream:
         # Set match data values
         new_msg["match_id"] = str(orig_msg["match_id"])
         new_msg["radiant_win"] = bool(orig_msg["radiant_win"])
+        new_msg["start_time"] = str(orig_msg["start_time"])
+        new_msg["duration"] = str(orig_msg["duration"])
+
+        # Dict of hero id to account id. Dota2 does not allow repeats in a team.
+        team_heroes = {}
+        for i in range(NUM_PLAYERS):
+            hero_id = orig_msg["players"][i]["hero_id"]
+            team_heroes[hero_id] = str(orig_msg["players"][i]["account_id"])
 
         # Store player data into JSON array
         new_msg["players"] = []
         for i in range(NUM_PLAYERS):
             # Create dict for player data
-            player_data = orig_msg["players"][i]
             new_msg["players"].append({})
+            new_player = new_msg["players"][i]
+            orig_player = orig_msg["players"][i]
             # Set fields
-            new_msg["players"][i]["hero_id"] = player_data["hero_id"]
-            new_msg["players"][i]["level"] = player_data["level"]
-            if orig_msg["players"][i]["account_id"] == None or \
-                    orig_msg["players"][i]["account_id"] == -1:
-                # Standardize anonymous account ID
-                new_msg["players"][i]["account_id"] = str(ANON_ID)
-            else:
-                new_msg["players"][i]["account_id"] = \
-                                                  str(player_data["account_id"])
-            # Set the player's team from the bit field
-            if player_data["player_slot"] >= TEAM_BIT_POS:
-                new_msg["players"][i]["team"] = "radiant"
-            else:
-                new_msg["players"][i]["team"] = "dire"
+            new_player["hero_id"] = orig_player["hero_id"]
+            new_player["total_healing"] = orig_player["hero_healing"]
+            new_player["total_hero_damage"] = orig_player["hero_damage"]
+            new_player["total_tower_damage"] = orig_player["tower_damage"]
+            new_player["xp_per_min"] = orig_player["xp_per_min"]
+            new_player["gold_per_min"] = orig_player["gold_per_min"]
 
+            if orig_player["account_id"] == None or \
+                    orig_player["account_id"] == -1:
+                # Standardize anonymous account ID
+                new_player["account_id"] = str(ANON_ID)
+            else:
+                new_player["account_id"] = str(orig_player["account_id"])
+
+            # Set the player's team from the bit field
+            if orig_player["player_slot"] >= TEAM_BIT_POS:
+                new_player["team"] = "radiant"
+            else:
+                new_player["team"] = "dire"
+
+            # Parse player interactions. Original message is a list of 
+            #format "npc_hero_blank, etc.", which will be changed to
+            # a list of account_id's and corresponding hero id's.
+            def get_interactions(field_name):
+                interactions = []
+                for name in orig_player[field_name]:
+                    for hero in heroes_json:
+                        if hero['name'] == name:
+                            interaction = {
+                                "account_id":team_heroes[hero['id']], 
+                                "hero_id":hero['id']
+                            }
+                            interactions.append(interaction) 
+                return interactions
+            
+            # Parse interactions
+            new_player["killed"] = get_interactions("killed")
+            new_player["damaged"] = get_interactions("damage")
+            new_player["healed"] = get_interactions("healing")
+            
         # Convert the dict into JSON and return it as a string
         return json.loads(json.dumps(new_msg))
 
