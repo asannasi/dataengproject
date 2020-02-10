@@ -1,0 +1,3 @@
+CREATE CONSTRAINT ON ( avatar:Avatar ) ASSERT avatar.composite_id IS UNIQUE;
+CREATE CONSTRAINT ON ( hero:Hero ) ASSERT hero.hero_id IS UNIQUE;
+CREATE CONSTRAINT ON ( player:Player ) ASSERT player.account_id IS UNIQUE;
