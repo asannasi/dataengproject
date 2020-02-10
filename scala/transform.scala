@@ -53,12 +53,14 @@ case class Player(
 case class Receiver(
   account_id: String,
   hero_id: Int,
+  weight: Int
 )
 case class Interaction(
   account_id1: String,
   hero_id1: Int,
   account_id2: String,
-  hero_id2: Int
+  hero_id2: Int,
+  weight: Int
 )
 case class TeamInteraction(
   account_id1: String,
@@ -98,12 +100,13 @@ object Transformer extends App{
   val players: KStream[String, Player] = source
     .flatMapValues(value => value.players)
     .filter((_, value) => !isAnon(value.account_id))
+  players.to("players")
 
   // Parse and format the interactions each player did to each other
   val killed: KStream[String, Interaction] = players
     .flatMapValues(value => value.killed
       .map(x => Interaction(
-        value.account_id, value.hero_id, x.account_id, x.hero_id))
+        value.account_id, value.hero_id, x.account_id, x.hero_id, x.weight))
     )
     .filter((_, value) => !isAnon(value.account_id2))
   killed.to("killed")
@@ -111,7 +114,7 @@ object Transformer extends App{
   val healed: KStream[String, Interaction] = players
     .flatMapValues(value => value.healed
       .map(x => Interaction(
-        value.account_id, value.hero_id, x.account_id, x.hero_id))
+        value.account_id, value.hero_id, x.account_id, x.hero_id, x.weight))
     )
     .filter((_, value) => !isAnon(value.account_id2))
   healed.to("healed")
@@ -119,7 +122,7 @@ object Transformer extends App{
   val damaged: KStream[String, Interaction] = players
     .flatMapValues(value => value.damaged
       .map(x => Interaction(
-        value.account_id, value.hero_id, x.account_id, x.hero_id))
+        value.account_id, value.hero_id, x.account_id, x.hero_id, x.weight))
     )
     .filter((_, value) => !isAnon(value.account_id2))
   damaged.to("damaged")
@@ -166,19 +169,19 @@ object Transformer extends App{
   // Change each stream into interactions instead of team interactions
   val wonWithStream: KStream[String, Interaction] = relationships(0)
     .mapValues(value => Interaction(
-      value.account_id1, value.hero_id1, value.account_id2, value.hero_id2))
+      value.account_id1, value.hero_id1, value.account_id2, value.hero_id2, 1))
   wonWithStream.to("won_with")
   val wonAgainstStream: KStream[String, Interaction] = relationships(1)
     .mapValues(value => Interaction(
-      value.account_id1, value.hero_id1, value.account_id2, value.hero_id2))
+      value.account_id1, value.hero_id1, value.account_id2, value.hero_id2, 1))
   wonAgainstStream.to("won_against")
   val lostWithStream: KStream[String, Interaction] = relationships(2)
     .mapValues(value => Interaction(
-      value.account_id1, value.hero_id1, value.account_id2, value.hero_id2))
+      value.account_id1, value.hero_id1, value.account_id2, value.hero_id2, 1))
   lostWithStream.to("lost_with")
   val lostAgainstStream: KStream[String, Interaction] = relationships(3)
     .mapValues(value => Interaction(
-      value.account_id1, value.hero_id1, value.account_id2, value.hero_id2))
+      value.account_id1, value.hero_id1, value.account_id2, value.hero_id2, 1))
   lostAgainstStream.to("lost_against")
 
   // Send stream to Kafka cluster
