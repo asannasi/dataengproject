@@ -59,9 +59,8 @@ rootLayout = html.Div(children=[
         options=[
             {'label': 'Account ID A: 249840485', 'value': '249840485'},
             {'label': 'Account ID B: 205789808', 'value': '205789808'},
-            {'label': 'Account ID C: 122256595', 'value': '122256595'},
-            {'label': 'Account ID D: 200002065', 'value': '200002065'},
-            {'label': 'Account ID E: 80410028', 'value': '80410028'},
+            {'label': 'Account ID C: 32096373', 'value': '32096373'},
+            {'label': 'Account ID D: 80410028', 'value': '80410028'},
         ],
         value= '249840485'
     ),
@@ -105,6 +104,7 @@ def update_output(value):
                  str(hero['r.weight']) + " times, "
     return output
 
+# LED button refresh
 @app.callback(
     dash.dependencies.Output('my-LED-display', 'value'),
     [dash.dependencies.Input('button','n_clicks')]
@@ -113,6 +113,7 @@ def update_output(n_clicks):
     graph = Graph("bolt://10.0.0.12:7687")
     return str(len(graph.nodes))
 
+# LED button refresh
 @app.callback(
     dash.dependencies.Output('my-LED-display2', 'value'),
     [dash.dependencies.Input('button','n_clicks')]
@@ -121,6 +122,7 @@ def update_output(n_clicks):
     graph = Graph("bolt://10.0.0.12:7687")
     return str(len(graph.relationships))
 
+# Slider to LED to display hero_id selected
 @app.callback(
     dash.dependencies.Output('selected-hero', 'value'),
     [dash.dependencies.Input('hero-slider','value')]
@@ -128,12 +130,14 @@ def update_output(n_clicks):
 def update_output(hero_id):
     return hero_id
 
+# Query for wins and losses
 @app.callback(
     dash.dependencies.Output('wins-losses', 'children'),
     [dash.dependencies.Input('hero-slider','value'),
         dash.dependencies.Input('account-selection','value')]
 )
 def update_output(hero_id, account_id):
+    # Query for teammate heroes with wins
     output = "You won the most with teammates playing the heroes: "
     query = "MATCH (a:Avatar{composite_id:'"+str(account_id)+str(hero_id)+"'})\
             -[r:WON_WITH]-(a2:Avatar)-[:IS]-(h:Hero)\
@@ -142,7 +146,7 @@ def update_output(hero_id, account_id):
     for hero in top_heroes_json:
         output += "Hero " + str(hero['h.hero_id']) + " was won with " +\
                  str(hero['r.weight']) + " times, "
-
+    # Query for teammate heroes with losses
     output += "You lost the most with teammates playing the heroes: "
     query = "MATCH (a:Avatar{composite_id:'"+str(account_id)+str(hero_id)+"'})\
             -[r:LOST_WITH]-(a2:Avatar)-[:IS]-(h:Hero)\
@@ -153,12 +157,14 @@ def update_output(hero_id, account_id):
                  str(hero['r.weight']) + " times, "
     return output
 
+# Query for killed, healed, and damaged heroes
 @app.callback(
     dash.dependencies.Output('killed-info', 'children'),
     [dash.dependencies.Input('hero-slider','value'),
         dash.dependencies.Input('account-selection','value')]
 )
 def update_output(hero_id, account_id):
+    # Query for killed heroes
     output = "Your killed heroes are: "
     query = "MATCH (a:Avatar{composite_id:'"+str(account_id)+str(hero_id)+"'})\
             -[r:KILLED]->(a2:Avatar)-[:IS]-(h:Hero)\
@@ -168,6 +174,7 @@ def update_output(hero_id, account_id):
         output += "Hero " + str(hero['h.hero_id']) + " was killed " +\
                  str(hero['r.weight']) + " times, "
 
+    # Query for getting healed heroes
     output += "Your healed heroes are: "
     query = "MATCH (a:Avatar{composite_id:'"+str(account_id)+str(hero_id)+"'})\
             -[r:HEALED]->(a2:Avatar)-[:IS]-(h:Hero)\
@@ -177,6 +184,7 @@ def update_output(hero_id, account_id):
         output += "Hero " + str(hero['h.hero_id']) + " was healed " +\
                  str(hero['r.weight']) + " times, "
 
+    # Query for getting damaged heroes
     output += "Your damaged heroes are: "
     query = "MATCH (a:Avatar{composite_id:'"+str(account_id)+str(hero_id)+"'})\
             -[r:DAMAGED]->(a2:Avatar)-[:IS]-(h:Hero)\
@@ -187,6 +195,7 @@ def update_output(hero_id, account_id):
                  str(hero['r.weight']) + " times, "
     return output
 
+# Query for the balanced team
 @app.callback(
     dash.dependencies.Output('team', 'children'),
     [dash.dependencies.Input('hero-slider','value'),
@@ -195,6 +204,7 @@ def update_output(hero_id, account_id):
 def update_output(hero_id, account_id):
     try:
         heroes = {}
+        # Query for getting win rate
         query = "MATCH (a:Avatar{composite_id:'"+str(account_id)+str(hero_id)+"'})\
                 -[r:WON_WITH]-(a2:Avatar)-[:IS]-(h:Hero)\
                 RETURN h.hero_id, r.weight ORDER BY r.weight DESC"
@@ -207,6 +217,7 @@ def update_output(hero_id, account_id):
                 else:
                     heroes[hero_id2] += 1
 
+        # Query for getting loss rate
         query = "MATCH (a:Avatar{composite_id:'"+str(account_id)+str(hero_id)+"'})\
                 -[r:LOST_WITH]-(a2:Avatar)-[:IS]-(h:Hero)\
                 RETURN h.hero_id, r.weight ORDER BY r.weight DESC"
@@ -219,6 +230,7 @@ def update_output(hero_id, account_id):
                 else:
                     heroes[hero_id2] -= 1
 
+        # Query for getting healed heroes
         query = "MATCH (a:Avatar{composite_id:'"+str(account_id)+str(hero_id)+"'})\
                 -[r:HEALED]->(a2:Avatar)-[:IS]-(h:Hero)\
                 RETURN h.hero_id, r.weight ORDER BY r.weight DESC"
@@ -230,6 +242,7 @@ def update_output(hero_id, account_id):
                     heroes[hero_id2] = 2
                 else:
                     heroes[hero_id2] += 2
+
         output = "Factoring in wins, losses, and heals, your team should have the heroes: "
         if heroes == {}:
             return "Check hero_id selection with slider to match top heroes"
