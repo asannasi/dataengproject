@@ -10,6 +10,8 @@ My project aims to reimagine matches as social interactions. Every match means a
 
 ## Overall Pipeline
 
+![Data Pipeline](./image.png)
+
 1. Pull JSON match data from **S3** and produce each JSON message to **Kafka** with a Python producer
 1. **Kafka streams** program transforms the data into a format useable by Neo4j ie. deriving player pairs
 1. **Neo4j** reads the resulting Kafka topic and updates its database
