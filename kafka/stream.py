@@ -160,6 +160,8 @@ class S3_JSON_Stream:
             # a list of account_id's and corresponding hero id's.
             def get_interactions(field_name):
                 interactions = []
+                if orig_player[field_name] == None:
+                    return interactions
                 for name in orig_player[field_name]:
                     for hero in heroes_json:
                         if hero['name'] == name and hero['id'] in team_heroes:
