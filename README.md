@@ -2,15 +2,28 @@
 
 [Live Demo](https://www.dataengproject.me)
 
-In the online video game Dota 2, each match is a battle between 2 teams of 5 players. However, many players do not actually play this game as a team; instead they're drafted along with other individuals by the game's matchmaking system. 
+In the online video game Dota 2, each match is a battle between 2 teams of 5 
+players. However, many players do not actually play this game as a team; instead
+ they're drafted along with other individuals by the game's matchmaking system. 
 
-Video games have the unique problem that every time someone interacts with their service, there is a inherent chance for the user to lose. How do developers keep players engaged with their game? Traditionally, players are matched based on their skill level for balanced teams so even losses are fun experiences as opposed to frutrating ones. Under this system, the team for one match is not carried over to the other. This is a missed opportunity.
+Video games have the unique problem that every time someone interacts with their
+ service, there is a inherent chance for the user to lose. How do developers 
+keep players engaged with their game? Traditionally, players are matched based 
+on their skill level for balanced teams so even losses are fun experiences as 
+opposed to frutrating ones. Under this system, the team for one match is not 
+carried over to the other. This is a missed opportunity.
 
-My project aims to reimagine matches as social interactions. Every match means a player has won with 4 other people and lost with 4 other people. These relationships can be represented as a property graph. Players can be matched based on their shared win rate with players they have played with before. This will help them build their own story when they engage with the game since they'll eventually learn the other player's playstyle, fostering teamwork. 
+My project aims to reimagine matches as social interactions. Every match means 
+a player has won with 4 other people and lost with 4 other people. These 
+relationships can be represented as a property graph. Players can be matched 
+based on their shared win rate with players they have played with before. This 
+will help them build their own story when they engage with the game since 
+they'll eventually learn the other player's playstyle, fostering teamwork while
+also keeping them engaged with the game. 
 
 ## Overall Pipeline
 
-![Data Pipeline](./image.png)
+![Data Pipeline](./images/image.png)
 
 1. Pull JSON match data from **S3** and produce each JSON message to **Kafka** with a Python producer
 1. **Kafka streams** program transforms the data into a format useable by Neo4j ie. deriving player pairs
