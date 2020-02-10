@@ -56,7 +56,7 @@ IP's; a template is included [here](./kafka/sample_config.py).
 
 ```shell
 cd dataengproject/kafka
-docker build -t send_data
+docker build -t send_data .
 docker run send_data
 ```
 Or if you have the dependencies:
@@ -80,7 +80,7 @@ changing the property BOOTSTRAP in transform.scala.
  
 ```shell
 cd dataengproject/scala
-docker build -t transform
+docker build -t transform .
 docker run transform
 ```
 Or if you want to run it locally:
