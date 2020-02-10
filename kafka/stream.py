@@ -119,8 +119,12 @@ class S3_JSON_Stream:
         # Dict of hero id to account id. Dota2 does not allow repeats in a team.
         team_heroes = {}
         for i in range(NUM_PLAYERS):
-            hero_id = orig_msg["players"][i]["hero_id"]
-            team_heroes[hero_id] = str(orig_msg["players"][i]["account_id"])
+            hero_id = int(orig_msg["players"][i]["hero_id"])
+            account_id = str(orig_msg["players"][i]["account_id"])
+            if account_id == None or account_id == "None" or account_id == "-1":
+                team_heroes[hero_id] = str(ANON_ID)
+            else:
+                team_heroes[hero_id] = str(account_id)
 
         # Store player data into JSON array
         new_msg["players"] = []
@@ -138,7 +142,8 @@ class S3_JSON_Stream:
             new_player["gold_per_min"] = orig_player["gold_per_min"]
 
             if orig_player["account_id"] == None or \
-                    orig_player["account_id"] == -1:
+                    orig_player["account_id"] == -1 or \
+                    orig_player["account_id"] == "None":
                 # Standardize anonymous account ID
                 new_player["account_id"] = str(ANON_ID)
             else:
@@ -157,10 +162,11 @@ class S3_JSON_Stream:
                 interactions = []
                 for name in orig_player[field_name]:
                     for hero in heroes_json:
-                        if hero['name'] == name:
+                        if hero['name'] == name and hero['id'] in team_heroes:
                             interaction = {
                                 "account_id":team_heroes[hero['id']], 
-                                "hero_id":hero['id']
+                                "hero_id":hero['id'],
+                                "weight":orig_player[field_name][name]
                             }
                             interactions.append(interaction) 
                 return interactions

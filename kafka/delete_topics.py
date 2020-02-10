@@ -13,7 +13,6 @@ topics = [
 "won_with",
 "neo4j",
 "players",
-"neo4j_sink",
 "damaged",
 "killed",
 "healed"
