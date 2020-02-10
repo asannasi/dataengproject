@@ -1,7 +1,11 @@
+/*
+ * This program is a Kafka streams app that will process match data from the 
+ * subscribed topic in JSON and transform it into multiple player interactions
+ * messages in JSON format suited for neo4j. The transformed data is sent to 
+ * Kafka as new topics. 
+ */
 
 package me.dataengproject.transform;
-
-//https://medium.com/@danieljameskay/kafka-streams-dsl-for-scala-the-basics-11d603295f5c
 
 import java.util.Properties
 import java.time.Duration
@@ -25,54 +29,166 @@ import org.apache.kafka.streams.kstream.Printed
 import com.goyeau.kafka.streams.circe.CirceSerdes._
 import io.circe.generic.auto._
 
-//case class Teammates(account_id: String)
-//case class Player(account_id: String, teammates:Array[Teammate])
-case class Player_Pair(player1: Player, player2: Player, radiant_win: Boolean, match_id: String)
-case class Player(account_id: String, hero_id: Int, level: Int, team: String)
-case class Match_Data(match_id: String, radiant_win: Boolean, players: List[Player])
+// Define JSON message structures
+case class MatchData(
+  match_id: String, 
+  radiant_win: Boolean, 
+  start_time: String, 
+  duration: String,
+  players: List[Player]
+)
+case class Player(
+  account_id: String, 
+  hero_id: Int, 
+  xp_per_min: Int, 
+  gold_per_min: Int,
+  team: String,
+  total_healing: Int,
+  total_hero_damage: Int,
+  total_tower_damage: Int,
+  killed: List[Receiver],
+  damaged: List[Receiver],
+  healed: List[Receiver]
+)
+case class Receiver(
+  account_id: String,
+  hero_id: Int,
+  weight: Int
+)
+case class Interaction(
+  account_id1: String,
+  hero_id1: Int,
+  account_id2: String,
+  hero_id2: Int,
+  weight: Int
+)
+case class TeamInteraction(
+  account_id1: String,
+  hero_id1: Int,
+  team1: String,
+  account_id2:String,
+  hero_id2: Int,
+  team2: String,
+  radiant_win: Boolean, 
+)
 
+// This is the main method called when this Kafka streams app is run 
 object Transformer extends App{
+  // Configure the broker connections to the Kafka cluster and assign an App Id
   val props: Properties = {
     val p = new Properties()
-    p.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "10.0.0.13:9092,10.0.0.11:9092,10.0.0.9")
+    p.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, 
+      "10.0.0.13:9092,10.0.0.11:9092,10.0.0.9:9092")
     p.put(StreamsConfig.APPLICATION_ID_CONFIG, "transformer")
     p
   }
+
+  // Connect to the Kafka stream topic
   val builder: StreamsBuilder = new StreamsBuilder
-  val source = builder.stream[String, Match_Data]("raw_json")
+  val topicName: String = "raw_json"
+  val source = builder.stream[String, MatchData](topicName)
 
-  val playerPairs: KStream[String, Player_Pair] = source
-    .flatMapValues(value => value.players.combinations(2).toList.map(x => Player_Pair(x(0), x(1), value.radiant_win, value.match_id)))
-    .filter((_, value) => value.player1.account_id != "4294967295" && value.player2.account_id != "4294967295")
+  // Setup predicate for testing if an account_id is masked
+  val anonAccountId: String = "4294967295"
+  val isAnon = (account_id: String) => account_id == anonAccountId
 
+  /*
+   * Make 3 streams for player interactions of killed, damaged, and 
+   * healed by using the data stored in each player. 
+   */
+  // Generate stream of each player's data
   val players: KStream[String, Player] = source
     .flatMapValues(value => value.players)
-    .filter((_, value) => value.account_id != "4294967295")
+    .filter((_, value) => !isAnon(value.account_id))
   players.to("players")
 
-  val player1Won = (pair: Player_Pair) => pair.player1.team == "radiant" && pair.radiant_win == true
-  val sameTeam = (pair: Player_Pair) => pair.player1.team == pair.player2.team
-
-  val wonWith = (_: String, pair: Player_Pair) => player1Won(pair) && sameTeam(pair)
-  val wonAgainst = (_: String, pair: Player_Pair) => player1Won(pair) && !sameTeam(pair)
-  val lostWith = (_: String, pair: Player_Pair) => !player1Won(pair) && sameTeam(pair)
-  val lostAgainst = (_: String, pair: Player_Pair) => !player1Won(pair) && !sameTeam(pair)
-
-  val relationships = playerPairs
-    .branch(
-      wonWith,
-      wonAgainst,
-      lostWith,
-      lostAgainst
+  // Parse and format the interactions each player did to each other
+  val killed: KStream[String, Interaction] = players
+    .flatMapValues(value => value.killed
+      .map(x => Interaction(
+        value.account_id, value.hero_id, x.account_id, x.hero_id, x.weight))
     )
+    .filter((_, value) => !isAnon(value.account_id2))
+  killed.to("killed")
 
-  relationships(0).to("won_with")
-  relationships(1).to("won_against")
-  relationships(2).to("lost_with")
-  relationships(3).to("lost_against")
+  val healed: KStream[String, Interaction] = players
+    .flatMapValues(value => value.healed
+      .map(x => Interaction(
+        value.account_id, value.hero_id, x.account_id, x.hero_id, x.weight))
+    )
+    .filter((_, value) => !isAnon(value.account_id2))
+  healed.to("healed")
+
+  val damaged: KStream[String, Interaction] = players
+    .flatMapValues(value => value.damaged
+      .map(x => Interaction(
+        value.account_id, value.hero_id, x.account_id, x.hero_id, x.weight))
+    )
+    .filter((_, value) => !isAnon(value.account_id2))
+  damaged.to("damaged")
+
+  /*
+   * Now branch player pairs stream into pairs that won with each other, lost
+   * with each other, won against each other, and lost against each other.
+   */
+  // Generate distinct pairs of players from the 10 players in the match and
+  // filter anonymous accounts
+  val pairInteractions: KStream[String, TeamInteraction] = source
+    .flatMapValues(value => value.players
+                                  .combinations(2)
+                                  .toList
+                                  .map(x => TeamInteraction(
+                                    x(0).account_id,
+                                    x(0).hero_id,
+                                    x(0).team,
+                                    x(1).account_id,
+                                    x(1).hero_id,
+                                    x(1).team,
+                                    value.radiant_win, 
+                                  )))
+    .filter((_,value) => !isAnon(value.account_id1) && 
+                         !isAnon(value.account_id2))
+
+  // Define predicates
+  val player1Won = (pair: TeamInteraction) => pair.team1 == "radiant" && 
+                                          pair.radiant_win == true
+  val sameTeam = (pair: TeamInteraction) => pair.team1 == pair.team2
+
+  val wonWith    = (_: String, pair: TeamInteraction) =>  
+    player1Won(pair) &&  sameTeam(pair)
+  val wonAgainst = (_: String, pair: TeamInteraction) => 
+    player1Won(pair) && !sameTeam(pair)
+  val lostWith   = (_: String, pair: TeamInteraction) => 
+    !player1Won(pair) &&  sameTeam(pair)
+  val lostAgainst= (_: String, pair: TeamInteraction) => 
+    !player1Won(pair) && !sameTeam(pair)
+
+  // Branch stream into 4 relationship streams.
+  val relationships = pairInteractions 
+    .branch(wonWith, wonAgainst, lostWith, lostAgainst)
+  // Change each stream into interactions instead of team interactions
+  val wonWithStream: KStream[String, Interaction] = relationships(0)
+    .mapValues(value => Interaction(
+      value.account_id1, value.hero_id1, value.account_id2, value.hero_id2, 1))
+  wonWithStream.to("won_with")
+  val wonAgainstStream: KStream[String, Interaction] = relationships(1)
+    .mapValues(value => Interaction(
+      value.account_id1, value.hero_id1, value.account_id2, value.hero_id2, 1))
+  wonAgainstStream.to("won_against")
+  val lostWithStream: KStream[String, Interaction] = relationships(2)
+    .mapValues(value => Interaction(
+      value.account_id1, value.hero_id1, value.account_id2, value.hero_id2, 1))
+  lostWithStream.to("lost_with")
+  val lostAgainstStream: KStream[String, Interaction] = relationships(3)
+    .mapValues(value => Interaction(
+      value.account_id1, value.hero_id1, value.account_id2, value.hero_id2, 1))
+  lostAgainstStream.to("lost_against")
+
+  // Send stream to Kafka cluster
   val streams: KafkaStreams = new KafkaStreams(builder.build(),props)
-  //streams.cleanUp() // Not for production use. Will rebuild state.
   streams.start()
+
+  // Close stream if program is shut down
   sys.ShutdownHookThread{
     streams.close(Duration.ofSeconds(10))
   }

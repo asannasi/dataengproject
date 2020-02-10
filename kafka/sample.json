@@ -1,10 +1,28 @@
 {
     "match_id": "1",
     "radiant_win": "true",
+    "start_time":"700000",
+    "duration":"800",
     "players":[{
         "account_id": 0,
         "hero_id": 0,
-        "level": 0,
-        "team": "radiant"
+        "xp_per_min": 0,
+        "gold_per_min": 0,
+        "team": "radiant",
+        "total_healing": 100,
+        "total_hero_damage":200,
+        "total_tower_damage":200,
+        "killed":[{
+            "account_id":"0",
+            "hero_id":0
+        },...],
+        "damaged":[{
+            "account_id":"0",
+            "hero_id":0
+        },...],
+        "healed":[{
+            "account_id":"0",
+            "hero_id":0
+        },...]
     }]
 }
