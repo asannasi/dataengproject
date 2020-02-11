@@ -6,8 +6,8 @@ In the online video game Dota 2, each match is a battle between 2 teams of 5
 players. However, many players do not actually play this game as a team; instead
  they're drafted along with other individuals by the game's matchmaking system. 
 
-Video games have the unique problem that every time someone interacts with their
- service, there is a inherent chance for the user to lose. How do developers 
+Video games have the unique problem that every time someone interacts with their 
+service, there is a inherent chance for the user to lose. How do developers 
 keep players engaged with their game? Traditionally, players are matched based 
 on their skill level for balanced teams so even losses are fun experiences as 
 opposed to frutrating ones. Under this system, the team for one match is not 
@@ -96,7 +96,8 @@ sudo sbt ~run
 **Purpose**: Gets data from topics (node and relationship data) and stores it 
 into the Neo4j database.
 
-**Info**: Uses the Neo4j Kafka plugin (not Kafka Connect). This plugin works 
+**Info**: Uses the [Neo4j Kafka plugin](https://github.com/neo4j-contrib/neo4j-streams) 
+(not Kafka Connect). This plugin works 
 with Neo4j 3.5, and the plugin version I used was 3.5.5.
 
 **Run Instructions**: You can run Neo4j using the 
@@ -111,6 +112,26 @@ the browser and enter the [contraints](./neo4j/constraints.txt) to make indexes.
 ```shell
 cd dataengproject/neo4j
 ./run.sh
+```
+
+## Redis
+
+**Location**: [redis folder](./redis)
+
+**Purpose**: Stores general best teams for some accounts (simulating online players), 
+in order to cache online player queries and avoid recursing through many offline player 
+nodes in Neo4j.
+
+**Info**: Uses the [redis python library](https://redislabs.com/lp/python-redis/) 
+and [py2neo library](https://py2neo.org/v4/).
+
+**Run Instructions**: Run redis with the 
+[docker file for redis](https://hub.docker.com/_/redis/) and expose the port 6379. 
+Then run store.py to start storing player info. Use clear.py to wipe the database.
+
+```shell
+sudo docker run -d -p 6379:6379 redis
+python store.py
 ```
 
 ## Website
