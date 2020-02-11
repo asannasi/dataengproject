@@ -119,7 +119,7 @@ cd dataengproject/neo4j
 
 **Purpose** Front-end for matchmaking selected account id's
 
-**Info**: Uses Dash to connect to Neo4j. 
+**Info**: Uses Dash to connect to Neo4j. Relies on the [py2neo library](https://py2neo.org/v4/) and [dash](https://dash.plot.ly/). 
 
 **Run Instructions**: You can run this using the instructions 
 [here](https://www.digitalocean.com/community/tutorials/how-to-serve-flask-applications-with-gunicorn-and-nginx-on-ubuntu-18-04). 
