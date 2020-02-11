@@ -23,7 +23,7 @@ also keeping them engaged with the game.
 
 ## Overall Pipeline
 
-![Data Pipeline](./images/image.png)
+![Data Pipeline](./images/pipeline.png)
 
 1. Pull JSON match data from **S3** and produce each JSON message to **Kafka** 
 with a Python producer
