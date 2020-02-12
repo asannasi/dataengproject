@@ -8,16 +8,23 @@ from dash.dependencies import Input, Output
 from py2neo import Graph
 import json
 
+# Import class to make queries to Neo4j
+from querier import Querier
+
 # Dash Setup
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 server = app.server
+
+# Connect to Neo4j
+querier = Querier()
+
 # This function returns all components for refresh
-graph = Graph("bolt://10.0.0.12:7687")
 def serve_layout():
     return html.Div(children=[dark_theme()], style={'padding': '0px'})
 
-app.layout = serve_layout
+# Set the website refresh to call a function
+app.layout = serve_layout 
 
 # Colors for dark theme
 theme = {
@@ -37,7 +44,7 @@ rootLayout = html.Div(children=[
         id='my-LED-display',
         color=theme['primary'],
         label={'label':"Total Player Nodes",'style':{'color':theme['primary']}},
-        value=str(len(graph.nodes))
+        value=querier.num_nodes()
     ),
 
     # Display total number of relationships in Neo4j graph
@@ -46,7 +53,7 @@ rootLayout = html.Div(children=[
         color=theme['primary'],
         label={'label':"Total Relationships",\
                 'style':{'color':theme['primary']}},
-        value=str(len(graph.relationships))
+        value=querier.num_relationships()
     ),html.Br(),
 
     html.Button('Refresh',id='button',\
@@ -87,7 +94,6 @@ rootLayout = html.Div(children=[
         figure={
             'data': [
                 {'x': [1, 2, 3], 'y': [4, 1, 2], 'type': 'bar', 'name': 'SF'},
-                {'x': [1, 2, 3], 'y': [2, 4, 5], 'type': 'bar', 'name': u'Montreal'},
             ],
             'layout': {
                 'title': 'Dash Data Visualization'
@@ -102,7 +108,6 @@ rootLayout = html.Div(children=[
         figure={
             'data': [
                 {'x': [1, 2, 3], 'y': [4, 1, 2], 'type': 'bar', 'name': 'SF'},
-                {'x': [1, 2, 3], 'y': [2, 4, 5], 'type': 'bar', 'name': u'Montreal'},
             ],
             'layout': {
                 'title': 'Dash Data Visualization'
@@ -110,9 +115,15 @@ rootLayout = html.Div(children=[
         }
     ),
     html.Div(html.P([html.Br()])),
-    html.Label(id="wins-losses",style={"font-size":"18px"}),
+    html.Label(id="wins",style={"font-size":"18px"}),
+    html.Div(html.P([html.Br()])),
+    html.Label(id="losses",style={"font-size":"18px"}),
     html.Div(html.P([html.Br()])),
     html.Label(id="killed-info",style={"font-size":"18px"}),
+    html.Div(html.P([html.Br()])),
+    html.Label(id="healed-info",style={"font-size":"18px"}),
+    html.Div(html.P([html.Br()])),
+    html.Label(id="damaged-info",style={"font-size":"18px"}),
     html.Div(html.P([html.Br()]))
 ])
 
@@ -131,13 +142,8 @@ def dark_theme():
         [dash.dependencies.Input('account-selection', 'value')])
 def update_output(value):
     output = "Your top heroes are: "
-    query = "MATCH (p:Player{account_id:'"+str(value)+"'})\
-            -[r:PLAYED_AS]->(a:Avatar)-[:IS]-(h:Hero)\
-            RETURN DISTINCT h.hero_id, r.weight ORDER BY r.weight DESC LIMIT 5"
-    top_heroes_json = json.loads(json.dumps(graph.run(query).data()))
-    for hero in top_heroes_json:
-        output += "Hero " + str(hero['h.hero_id']) + " which you played " +\
-                 str(hero['r.weight']) + " times, "
+    result_json = querier.top_heroes(account_id=value)
+    output += querier.json_to_string_heroes("which you played", result_json)
     return output
 
 # LED button refresh
@@ -146,8 +152,7 @@ def update_output(value):
     [dash.dependencies.Input('button','n_clicks')]
 )
 def update_output(n_clicks):
-    graph = Graph("bolt://10.0.0.12:7687")
-    return str(len(graph.nodes))
+    return querier.num_nodes()
 
 # LED button refresh
 @app.callback(
@@ -155,8 +160,7 @@ def update_output(n_clicks):
     [dash.dependencies.Input('button','n_clicks')]
 )
 def update_output(n_clicks):
-    graph = Graph("bolt://10.0.0.12:7687")
-    return str(len(graph.relationships))
+    return querier.num_relationships()
 
 # Slider to LED to display hero_id selected
 @app.callback(
@@ -166,34 +170,31 @@ def update_output(n_clicks):
 def update_output(hero_id):
     return hero_id
 
-# Query for wins and losses
+# Query for teammate heroes with wins
 @app.callback(
-    dash.dependencies.Output('wins-losses', 'children'),
+    dash.dependencies.Output('wins', 'children'),
     [dash.dependencies.Input('hero-slider','value'),
         dash.dependencies.Input('account-selection','value')]
 )
 def update_output(hero_id, account_id):
-    # Query for teammate heroes with wins
     output = "You won the most with teammates playing the heroes: "
-    query = "MATCH (a:Avatar{composite_id:'"+str(account_id)+str(hero_id)+"'})\
-            -[r:WON_WITH]-(a2:Avatar)-[:IS]-(h:Hero)\
-            RETURN DISTINCT h.hero_id, r.weight ORDER BY r.weight DESC"
-    top_heroes_json = json.loads(json.dumps(graph.run(query).data()))
-    for hero in top_heroes_json:
-        output += "Hero " + str(hero['h.hero_id']) + " was won with " +\
-                 str(hero['r.weight']) + " times, "
-    # Query for teammate heroes with losses
-    output += "You lost the most with teammates playing the heroes: "
-    query = "MATCH (a:Avatar{composite_id:'"+str(account_id)+str(hero_id)+"'})\
-            -[r:LOST_WITH]-(a2:Avatar)-[:IS]-(h:Hero)\
-            RETURN DISTINCT h.hero_id, r.weight ORDER BY r.weight DESC"
-    top_heroes_json = json.loads(json.dumps(graph.run(query).data()))
-    for hero in top_heroes_json:
-        output += "Hero " + str(hero['h.hero_id']) + " was lost with " +\
-                 str(hero['r.weight']) + " times, "
+    results_json = querier.won_heroes(account_id=account_id, hero_id=hero_id)
+    output += querier.json_to_string_heroes("was won with", result_json)
     return output
 
-# Query for killed, healed, and damaged heroes
+# Query for teammate heroes with losses
+@app.callback(
+    dash.dependencies.Output('losses', 'children'),
+    [dash.dependencies.Input('hero-slider','value'),
+        dash.dependencies.Input('account-selection','value')]
+)
+def update_output(hero_id, account_id):
+    output = "You lost the most with teammates playing the heroes: "
+    results_json = querier.lost_heroes(account_id=account_id, hero_id=hero_id)
+    output += querier.json_to_string_heroes("was lost with", result_json)
+    return output
+
+# Query for killed heroes
 @app.callback(
     dash.dependencies.Output('killed-info', 'children'),
     [dash.dependencies.Input('hero-slider','value'),
@@ -201,34 +202,33 @@ def update_output(hero_id, account_id):
 )
 def update_output(hero_id, account_id):
     # Query for killed heroes
-    output = "Your killed heroes are: "
-    query = "MATCH (a:Avatar{composite_id:'"+str(account_id)+str(hero_id)+"'})\
-            -[r:KILLED]->(a2:Avatar)-[:IS]-(h:Hero)\
-            RETURN DISTINCT h.hero_id, r.weight ORDER BY r.weight DESC"
-    top_heroes_json = json.loads(json.dumps(graph.run(query).data()))
-    for hero in top_heroes_json:
-        output += "Hero " + str(hero['h.hero_id']) + " was killed " +\
-                 str(hero['r.weight']) + " times, "
+    output = "Your eliminated heroes are: "
+    results_json = querier.killed_heroes(account_id=account_id, hero_id=hero_id)
+    output += querier.json_to_string_heroes("elim.", result_json)
+    return output
 
-    # Query for getting healed heroes
-    output += "Your healed heroes are: "
-    query = "MATCH (a:Avatar{composite_id:'"+str(account_id)+str(hero_id)+"'})\
-            -[r:HEALED]->(a2:Avatar)-[:IS]-(h:Hero)\
-            RETURN DISTINCT h.hero_id, r.weight ORDER BY r.weight DESC"
-    top_heroes_json = json.loads(json.dumps(graph.run(query).data()))
-    for hero in top_heroes_json:
-        output += "Hero " + str(hero['h.hero_id']) + " was healed " +\
-                 str(hero['r.weight']) + " times, "
+# Query for healed heroes
+@app.callback(
+    dash.dependencies.Output('healed-info', 'children'),
+    [dash.dependencies.Input('hero-slider','value'),
+        dash.dependencies.Input('account-selection','value')]
+)
+def update_output(hero_id, account_id):
+    output = "Your healed heroes are: "
+    results_json = querier.healed_heroes(account_id=account_id, hero_id=hero_id)
+    output += querier.json_to_string_heroes("healed", result_json)
+    return output
 
-    # Query for getting damaged heroes
-    output += "Your damaged heroes are: "
-    query = "MATCH (a:Avatar{composite_id:'"+str(account_id)+str(hero_id)+"'})\
-            -[r:DAMAGED]->(a2:Avatar)-[:IS]-(h:Hero)\
-            RETURN DISTINCT h.hero_id, r.weight ORDER BY r.weight DESC"
-    top_heroes_json = json.loads(json.dumps(graph.run(query).data()))
-    for hero in top_heroes_json:
-        output += "Hero " + str(hero['h.hero_id']) + " was damaged " +\
-                 str(hero['r.weight']) + " times, "
+# Query for damaged heroes
+@app.callback(
+    dash.dependencies.Output('damaged-info', 'children'),
+    [dash.dependencies.Input('hero-slider','value'),
+        dash.dependencies.Input('account-selection','value')]
+)
+def update_output(hero_id, account_id):
+    output = "Your damaged heroes are: "
+    results_json = querier.healed_heroes(account_id=account_id, hero_id=hero_id)
+    output += querier.json_to_string_heroes("damaged", result_json)
     return output
 
 # Query for the balanced team
@@ -295,26 +295,11 @@ def update_output(hero_id, account_id):
         dash.dependencies.Input('account-selection','value')]
 )
 def update_output(hero_id, account_id):
-    try:
-        output = "You should play your next match with " 
-        players = {}
-        # Query for getting win rate
-        query = "MATCH (a:Avatar{composite_id:'"+str(account_id)+str(hero_id)+\
-                "'})-[r:WON_WITH]-(a2:Avatar)<-[r2:PLAYED_AS]-(p:Player)\
-                RETURN DISTINCT p.account_id, r2.weight ORDER BY r2.weight DESC"
-        top_players_json = json.loads(json.dumps(graph.run(query).data()))
-        for player in top_players_json:
-            player_id2 = player['p.account_id']
-            if account_id != player_id2:
-                if player_id2 not in players:
-                    players[player_id2] = 1
-                else:
-                    players[player_id2] += 1
-        output += str(sorted(players, key=players.get, reverse=True)[:4])
-        return output
-    except e as Exception:
-        return repr(e)
-
+    output = "You work best with players: "
+    results_json = querier.win_players(account_id=account_id, hero_id=hero_id)
+    output += querier.json_to_string_players(result_json)
+    return output
+    
 # Graph hero stats
 @app.callback(
     dash.dependencies.Output('example-graph', 'figure'),
@@ -322,82 +307,58 @@ def update_output(hero_id, account_id):
         dash.dependencies.Input('account-selection','value')]
 )
 def update_output(hero_id, account_id):
-    try:
-        # Query for killed heroes
-        output = "Your killed heroes are: "
-        query = "MATCH (a:Avatar{composite_id:'"+str(account_id)+str(hero_id)+"'})\
-                -[r:KILLED]->(a2:Avatar)-[:IS]-(h:Hero)\
-                RETURN DISTINCT h.hero_id, r.weight ORDER BY r.weight DESC"
-        k_heroes = []
-        k_weights = []
-        top_heroes_json = json.loads(json.dumps(graph.run(query).data()))
-        for hero in top_heroes_json:
-            k_heroes.append(hero['h.hero_id'])
-            k_weights.append(hero['r.weight'])
+    # Query for killed heroes
+    k_heroes = []
+    k_weights = []
+    top_heroes_json = querier.killed_heroes(account_id=account_id, hero_id=hero_id)
+    for hero in top_heroes_json:
+        k_heroes.append(hero['h.hero_id'])
+        k_weights.append(hero['r.weight'])
 
-        # Query for getting healed heroes
-        output += "Your healed heroes are: "
-        query = "MATCH (a:Avatar{composite_id:'"+str(account_id)+str(hero_id)+"'})\
-                -[r:HEALED]->(a2:Avatar)-[:IS]-(h:Hero)\
-                RETURN DISTINCT h.hero_id, r.weight ORDER BY r.weight DESC"
-        h_heroes = []
-        h_weights = []
-        top_heroes_json = json.loads(json.dumps(graph.run(query).data()))
-        for hero in top_heroes_json:
-            h_heroes.append(hero['h.hero_id'])
-            h_weights.append(hero['r.weight'])
+    # Query for getting healed heroes
+    h_heroes = []
+    h_weights = []
+    top_heroes_json = querier.healed_heroes(account_id=account_id, hero_id=hero_id)
+    for hero in top_heroes_json:
+        h_heroes.append(hero['h.hero_id'])
+        h_weights.append(hero['r.weight'])
 
-        # Query for getting damaged heroes
-        output += "Your damaged heroes are: "
-        query = "MATCH (a:Avatar{composite_id:'"+str(account_id)+str(hero_id)+"'})\
-                -[r:DAMAGED]->(a2:Avatar)-[:IS]-(h:Hero)\
-                RETURN DISTINCT h.hero_id, r.weight ORDER BY r.weight DESC"
-        d_heroes = []
-        d_weights = []
-        top_heroes_json = json.loads(json.dumps(graph.run(query).data()))
-        for hero in top_heroes_json:
-            d_heroes.append(hero['h.hero_id'])
-            d_weights.append(hero['r.weight'])
-        figure={
-            'data': [
-                {'x':k_heroes, 'y': k_weights,\
-                        'type': 'bar', 'name':'killed'},
-                {'x':h_heroes, 'y': h_weights,\
-                        'type': 'bar', 'name':'healed'},
-                {'x':d_heroes, 'y': d_weights,\
-                        'type': 'bar', 'name':'damaged'},
-            ],
-            'layout':{'title': 'Your Interactions with Other Heroes'}
-        }
-        return figure
-    except e as Exception:
-        return repr(e)
+    # Query for getting damaged heroes
+    d_heroes = []
+    d_weights = []
+    top_heroes_json = querier.damaged_heroes(account_id=account_id, hero_id=hero_id)
+    for hero in top_heroes_json:
+        d_heroes.append(hero['h.hero_id'])
+        d_weights.append(hero['r.weight'])
+    figure={
+        'data': [
+            {'x':k_heroes, 'y': k_weights, 'type': 'bar', 'name':'eliminated'},
+            {'x':h_heroes, 'y': h_weights, 'type': 'bar', 'name':'healed'},
+            {'x':d_heroes, 'y': d_weights, 'type': 'bar', 'name':'damaged'},
+        ],
+        'layout':{'title': 'Your Interactions with Other Heroes'}
+    }
+    return figure
 
 @app.callback(
     dash.dependencies.Output('hero-graph', 'figure'),
     [dash.dependencies.Input('account-selection','value')]
 )
 def update_output(account_id):
-    try:
-        query = "MATCH (p:Player{account_id:'"+str(account_id)+"'})\
-                -[r:PLAYED_AS]->(a:Avatar)-[:IS]-(h:Hero)\
-                RETURN DISTINCT h.hero_id, r.weight ORDER BY r.weight DESC"
-        top_heroes_json = json.loads(json.dumps(graph.run(query).data()))
-        heroes = []
-        weights = []
-        for hero in top_heroes_json:
-            heroes.append(hero['h.hero_id'])
-            weights.append(hero['r.weight'])
+    heroes = []
+    weights = []
+    top_heroes_json = querier.top_heroes(account_id=account_id, hero_id=hero_id)
+    for hero in top_heroes_json:
+        heroes.append(hero['h.hero_id'])
+        weights.append(hero['r.weight'])
 
-        figure={
-            'data': [
-                {'x': heroes, 'y': weights,\
-                        'type': 'bar', 'name':'hero-stats'},
-            ],
-            'layout':{'title': 'Your Heroes'}
-        }
-        return figure
-    except e as Exception:
-        return repr(e)
+    figure={
+        'data': [
+            {'x': heroes, 'y': weights,'type': 'bar', 'name':'hero-stats'},
+        ],
+        'layout':{'title': 'Your Heroes'}
+    }
+    return figure
+
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0',debug=True)
